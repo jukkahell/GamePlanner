@@ -128,7 +128,7 @@ const collectDate = (channel, game, message) => {
 const collectGame = (channel, message) => {
   message.author.send(`OK plänätään. Mitä peliä pelataan?`).then(dm => {
     const collector = dm.channel.createMessageCollector(
-      (m) => m.content.length > 2 && m.author.id === message.author.id,
+      (m) => m.content.length >= 2 && m.author.id === message.author.id,
       { time: timeout }
     );
     collector.on("collect", (m) => {
