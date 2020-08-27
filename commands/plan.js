@@ -147,7 +147,15 @@ const collectChannel = (guild, message) => {
   } else {
     let i = 1;
     const textChannels = guild.channels.cache.filter((c) => c.type === "text").map((c) => c);
-    const channelOptions = textChannels.map((c) => `${i++}. ${c.name}`);
+    const allowedChannels = textChannels.filter(c => 
+      c.permissionsFor(message.client.user).has(["SEND_MESSAGES", "VIEW_CHANNEL"]) && 
+      c.permissionsFor(message.author).has(["SEND_MESSAGES", "VIEW_CHANNEL"])
+    );
+    if (allowedChannels.length === 0) {
+      message.author.send(`Meillä ei valitettavasti ole riittäviä oikeuksia postailla ehdotuksia valitulla palvelimella.`);
+      return;
+    }
+    const channelOptions = allowedChannels.map((c) => `${i++}. ${c.name}`);
     message.author.send(`Mille kanavalle laitetaan?\n${channelOptions.join("\n")}`);
     const collector = message.channel.createMessageCollector(
       (m) =>
