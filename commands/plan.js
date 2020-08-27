@@ -126,17 +126,18 @@ const collectDate = (channel, game, message) => {
 };
 
 const collectGame = (channel, message) => {
-  message.author.send(`OK plänätään. Mitä peliä pelataan?`);
-  const collector = message.channel.createMessageCollector(
-    (m) => m.content.length > 2 && m.author.id === message.author.id,
-    { time: timeout }
-  );
-  collector.on("collect", (m) => {
-    collector.stop();
-    message.author.send(`${m.content} on hyvä peli! Minä päivänä?`);
-    collectDate(channel, m.content, message);
+  message.author.send(`OK plänätään. Mitä peliä pelataan?`).then(dm => {
+    const collector = dm.channel.createMessageCollector(
+      (m) => m.content.length > 2 && m.author.id === message.author.id,
+      { time: timeout }
+    );
+    collector.on("collect", (m) => {
+      collector.stop();
+      message.author.send(`${m.content} on hyvä peli! Minä päivänä?`);
+      collectDate(channel, m.content, m);
+    });
+    collectorEnd(collector, message);
   });
-  collectorEnd(collector, message);
 };
 
 const collectChannel = (guild, message) => {
