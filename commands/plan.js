@@ -14,7 +14,7 @@ const publishPlan = (channel, game, date, notifyTime, minPlayers, maxPlayers, ti
   for (let i = 0; i < times.length; i++) {
     optionsText += `${reactOptions[i]} ${times[i]}\n`;
   }
-  const playerCountText = maxPlayers === 0 ? `minimissään ${minPlayers}` : `${minPlayers}-${maxPlayers}`;
+  const playerCountText = maxPlayers === '0' ? `minimissään ${minPlayers}` : `${minPlayers}-${maxPlayers}`;
 
   channel
     .send(
@@ -45,7 +45,7 @@ ${optionsText}
           const maxReaction = collected.find((o) => o.count == maxCount);
           const users = maxReaction.users.cache.filter((u) => !u.bot).map((u) => `<@${u.id}>`);
           const time = times[reactOptions.indexOf(maxReaction.emoji.name)];
-          channel.send(`${users.join(" ")} ${game} pelit alkaa klo ${time}.`);
+          channel.send(`${users.join(" ")} ${game} pelit alkaa ${time}.`);
         });
       } catch (error) {
         console.error("One of the emojis failed to react.", error);
@@ -75,8 +75,9 @@ const collectMaxPlayers = (channel, game, date, notifyTime, minPlayers, message)
   );
   collector.on("collect", (m) => {
     collector.stop();
+    const playerCountText = m.content === '0' ? `minimissään ${minPlayers} pelaajaa` : `${minPlayers}-${m.content} pelaajaa`;
     message.author.send(
-      `${date} ${game}, ${minPlayers}-${m.content} pelaajaa. Mitkä kellonajat annetaan vaihtoehdoiksi? Voit antaa useamman ajan välilyönnillä eroteltuna muodossa HH:mm.`
+      `${date} ${game}, ${playerCountText}. Mitä annetaan vaihtoehdoiksi? Voit antaa useamman ajankohdan välilyönnillä eroteltuna.`
     );
     collectTimes(channel, game, date, notifyTime, minPlayers, m.content, message);
   });
@@ -206,7 +207,7 @@ const planner = {
   name: "plan",
   description: "Suunnittele pelihetki.",
   cooldown: 5,
-  usage: `[pelin nimi] [päivä] [keräysaika tunteina] [min pelaajaa] [max pelaajaa] [...kellonajat (max ${reactOptions.length})]`,
+  usage: `[pelin nimi] [ajankohta] [keräysaika tunteina] [min pelaajaa] [max pelaajaa] [...vaihtoehdot (max ${reactOptions.length})]`,
   execute(message, args) {
     const input = args.join(" ");
     const regex = new RegExp('"[^"]+"|[\\S]+', "g");
