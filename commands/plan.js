@@ -141,21 +141,32 @@ const collectGame = (channel, message) => {
   });
 };
 
-const collectChannel = (guild, message) => {
+const channelHasPermissions = (channel, message) => {
+  return channel.permissionsFor(message.client.user).has(["SEND_MESSAGES", "VIEW_CHANNEL"]) && 
+         channel.permissionsFor(message.author).has(["SEND_MESSAGES", "VIEW_CHANNEL"]);
+};
+
+const collectChannel = (guild, message, postedOnChannel = undefined) => {
   if (guild.channels.cache.filter((c) => c.type === "text").size === 1) {
     const firstTextChannel = guild.channels.cache.filter((c) => c.type === "text").first();
+    if (!channelHasPermissions(firstTextChannel, message)) {
+      message.author.send(`Meillä ei valitettavasti ole riittäviä oikeuksia postailla ehdotuksia valitulla palvelimella.`);
+      return;
+    }
     collectGame(firstTextChannel, message);
   } else {
     let i = 1;
     const textChannels = guild.channels.cache.filter((c) => c.type === "text").map((c) => c);
-    const allowedChannels = textChannels.filter(c => 
-      c.permissionsFor(message.client.user).has(["SEND_MESSAGES", "VIEW_CHANNEL"]) && 
-      c.permissionsFor(message.author).has(["SEND_MESSAGES", "VIEW_CHANNEL"])
-    );
+    const allowedChannels = textChannels.filter(c => channelHasPermissions(c, message));
     if (allowedChannels.length === 0) {
       message.author.send(`Meillä ei valitettavasti ole riittäviä oikeuksia postailla ehdotuksia valitulla palvelimella.`);
       return;
     }
+    if (postedOnChannel && allowedChannels.some(c => c.id === postedOnChannel.id)) {
+      collectGame(suggestedChannel, message);
+      return;
+    }
+
     const channelOptions = allowedChannels.map((c) => `${i++}. ${c.name}`);
     message.author.send(`Mille kanavalle laitetaan?\n${channelOptions.join("\n")}`);
     const collector = message.channel.createMessageCollector(
@@ -224,7 +235,7 @@ const planner = {
       if (message.channel.type === "dm") {
         collectGuild(message);
       } else {
-        collectGame(message.channel, message);
+        collectChannel(message.channel.guild, message, message.channel);
       }
       return;
     } else if (arguments.length < argCountWithoutTimes + 1) {
