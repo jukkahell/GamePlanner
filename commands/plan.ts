@@ -146,7 +146,7 @@ const collectGame = (channel: TextChannel, message: Message) => {
 
 const channelHasPermissions = (channel: GuildChannel, message: Message) => {
   return channel.permissionsFor(message.client.user).has(["SEND_MESSAGES", "VIEW_CHANNEL"]) && 
-         channel.permissionsFor(message.author).has(["SEND_MESSAGES", "VIEW_CHANNEL"]);
+         channel.permissionsFor(message.author).has(["VIEW_CHANNEL"]);
 };
 
 const collectChannel = (guild: Guild, message: Message, postedOnChannel: TextChannel = undefined) => {
