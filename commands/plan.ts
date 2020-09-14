@@ -78,14 +78,6 @@ const collectMaxPlayers = (channel: TextChannel, game: string, date: string, not
   );
   collector.on("collect", (m: Message) => {
     collector.stop();
-    if (isNaN(<any> m.content)) {
-      message.author.send(
-        `Maksimi pelaajamäärä pitää olla numero. Anna 0, jos ei ole maksimia.`
-      );
-      collectMaxPlayers(channel, game, date, notifyTime, minPlayers, message);
-      return;
-    }
-
     const playerCountText = m.content === '0' ? `minimissään ${minPlayers} pelaajaa` : `${minPlayers}-${m.content} pelaajaa`;
     message.author.send(
       `${date} ${game}, ${playerCountText}. Mitä annetaan vaihtoehdoiksi? Voit antaa useamman ajankohdan välilyönnillä eroteltuna.`
@@ -102,14 +94,6 @@ const collectMinPlayers = (channel: TextChannel, game: string, date: string, not
   );
   collector.on("collect", (m: Message) => {
     collector.stop();
-    if (isNaN(<any> m.content)) {
-      message.author.send(
-        `Minimi pelaajamäärä pitää olla numero. Mikä on minimi pelaajamäärä?`
-      );
-      collectMinPlayers(channel, game, date, notifyTime, message);
-      return;
-    }
-
     message.author.send(
       `${date} ${game} minimissään ${m.content} pelaajalla. Mikä on maksimi pelaajamäärä? Anna 0, jos ei ole maksimia.`
     );
@@ -125,14 +109,6 @@ const collectNotifyTime = (channel: TextChannel, game: string, date: string, mes
   );
   collector.on("collect", (m: Message) => {
     collector.stop();
-    if (isNaN(<any> m.content)) {
-      message.author.send(
-        `Tuntimäärä pitää olla numero. Kuinka kauan kerään ääniä?`
-      );
-      collectNotifyTime(channel, game, date, message);
-      return;
-    }
-
     message.author.send(`Kerään ${m.content} tuntia ääniä pelille ${game}! Mikä on minimi pelaajamäärä?`);
     collectMinPlayers(channel, game, date, parseInt(m.content), message);
   });
