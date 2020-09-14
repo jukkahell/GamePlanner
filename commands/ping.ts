@@ -1,4 +1,6 @@
-module.exports = {
+import { Command } from "./command.interface";
+
+module.exports = <Command>{
   name: "ping",
   description: "Ping!",
   cooldown: 5,

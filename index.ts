@@ -1,10 +1,13 @@
-const fs = require("fs");
-const config = require("./config.json");
-const Discord = require("discord.js");
+import * as fs from "fs";
+import * as Discord from "discord.js";
+import { Command } from "./commands/command.interface";
+import { DiscordClient } from "./gameplanner.interface";
+import config = require("./config.json");
 
-const client = new Discord.Client();
-client.commands = new Discord.Collection();
-const cooldowns = new Discord.Collection();
+
+const client: DiscordClient = new Discord.Client();
+client.commands = new Discord.Collection<string, Command>();
+const cooldowns = new Discord.Collection<string, Discord.Collection<string, number>>();
 const commandFiles = fs.readdirSync("./commands").filter((file) => file.endsWith(".js"));
 
 for (const file of commandFiles) {

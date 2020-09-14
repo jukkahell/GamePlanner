@@ -1,12 +1,16 @@
-module.exports = {
+import { Command } from "./command.interface";
+import { DiscordClient } from "../gameplanner.interface";
+
+module.exports = <Command>{
   name: "reload",
   description: "Reloads a command",
   args: true,
   execute(message, args) {
+    const client = <DiscordClient> message.client;
     const commandName = args[0].toLowerCase();
     const command =
-      message.client.commands.get(commandName) ||
-      message.client.commands.find((cmd) => cmd.aliases && cmd.aliases.includes(commandName));
+      client.commands.get(commandName) ||
+      client.commands.find((cmd) => cmd.aliases && cmd.aliases.includes(commandName));
 
     if (!command) {
       return message.channel.send(`There is no command with name or alias \`${commandName}\`, ${message.author}!`);
@@ -15,8 +19,8 @@ module.exports = {
     delete require.cache[require.resolve(`./${command.name}.js`)];
 
     try {
-      const newCommand = require(`./${command.name}.js`);
-      message.client.commands.set(newCommand.name, newCommand);
+      const newCommand: Command = require(`./${command.name}.js`);
+      client.commands.set(newCommand.name, newCommand);
       message.channel.send(`Command \`${command.name}\` was reloaded!`);
     } catch (error) {
       console.log(error);

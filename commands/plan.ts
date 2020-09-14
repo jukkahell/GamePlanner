@@ -1,7 +1,10 @@
+import { Command } from "./command.interface";
+import { Message, Guild, TextChannel, GuildChannel, DMChannel, NewsChannel, MessageCollector, CollectorFilter } from "discord.js";
+
 const reactOptions = ["🇦", "🇧", "🇨", "🇩", "🇪", "🇫", "🇬", "🇭"];
 const timeout = 60000;
 
-const collectorEnd = (collector, message) => {
+const collectorEnd = (collector: MessageCollector, message: Message) => {
   collector.on("end", (collected) => {
     if (collected.size === 0) {
       message.author.send(`En jaksanut odottaa enempää. Huutele !plan uudestaan kun tiedät plänin.`);
@@ -9,12 +12,12 @@ const collectorEnd = (collector, message) => {
   });
 };
 
-const publishPlan = (channel, game, date, notifyTime, minPlayers, maxPlayers, times) => {
+const publishPlan = (channel: TextChannel | DMChannel | NewsChannel, game: string, date: string, notifyTime: number, minPlayers: number, maxPlayers: number, options: string[]) => {
   let optionsText = "";
-  for (let i = 0; i < times.length; i++) {
-    optionsText += `${reactOptions[i]} ${times[i]}\n`;
+  for (let i = 0; i < options.length; i++) {
+    optionsText += `${reactOptions[i]} ${options[i]}\n`;
   }
-  const playerCountText = maxPlayers === '0' ? `minimissään ${minPlayers}` : `${minPlayers}-${maxPlayers}`;
+  const playerCountText = maxPlayers === 0 ? `minimissään ${minPlayers}` : `${minPlayers}-${maxPlayers}`;
 
   channel
     .send(
@@ -26,10 +29,10 @@ ${optionsText}
     )
     .then(async (message) => {
       try {
-        for (let i = 0; i < times.length; i++) {
+        for (let i = 0; i < options.length; i++) {
           await message.react(reactOptions[i]);
         }
-        const filter = (reaction) => {
+        const filter: CollectorFilter = (reaction) => {
           return reactOptions.indexOf(reaction.emoji.name) >= 0;
         };
         const collector = message.createReactionCollector(filter, { dispose: true, time: notifyTime * 60 * 60 * 1000 });
@@ -44,7 +47,7 @@ ${optionsText}
           }
           const maxReaction = collected.find((o) => o.count == maxCount);
           const users = maxReaction.users.cache.filter((u) => !u.bot).map((u) => `<@${u.id}>`);
-          const time = times[reactOptions.indexOf(maxReaction.emoji.name)];
+          const time = options[reactOptions.indexOf(maxReaction.emoji.name)];
           channel.send(`${users.join(" ")} ${game} pelit alkaa ${time}.`);
         });
       } catch (error) {
@@ -53,7 +56,7 @@ ${optionsText}
     });
 };
 
-const collectTimes = (channel, game, date, notifyTime, minPlayers, maxPlayers, message) => {
+const collectTimes = (channel: TextChannel, game: string, date: string, notifyTime: number, minPlayers: number, maxPlayers: number, message: Message) => {
   const collector = message.channel.createMessageCollector(
     (m) => m.content.length >= 5 && m.author.id === message.author.id,
     { time: timeout }
@@ -68,71 +71,95 @@ const collectTimes = (channel, game, date, notifyTime, minPlayers, maxPlayers, m
   collectorEnd(collector, message);
 };
 
-const collectMaxPlayers = (channel, game, date, notifyTime, minPlayers, message) => {
+const collectMaxPlayers = (channel: TextChannel, game: string, date: string, notifyTime: number, minPlayers: number, message: Message) => {
   const collector = message.channel.createMessageCollector(
-    (m) => !isNaN(m.content) && m.author.id === message.author.id,
+    (m: Message) => !isNaN(<any> m.content) && m.author.id === message.author.id,
     { time: timeout }
   );
-  collector.on("collect", (m) => {
+  collector.on("collect", (m: Message) => {
     collector.stop();
+    if (isNaN(<any> m.content)) {
+      message.author.send(
+        `Maksimi pelaajamäärä pitää olla numero. Anna 0, jos ei ole maksimia.`
+      );
+      collectMaxPlayers(channel, game, date, notifyTime, minPlayers, message);
+      return;
+    }
+
     const playerCountText = m.content === '0' ? `minimissään ${minPlayers} pelaajaa` : `${minPlayers}-${m.content} pelaajaa`;
     message.author.send(
       `${date} ${game}, ${playerCountText}. Mitä annetaan vaihtoehdoiksi? Voit antaa useamman ajankohdan välilyönnillä eroteltuna.`
     );
-    collectTimes(channel, game, date, notifyTime, minPlayers, m.content, message);
+    collectTimes(channel, game, date, notifyTime, minPlayers, parseInt(m.content), message);
   });
   collectorEnd(collector, message);
 };
 
-const collectMinPlayers = (channel, game, date, notifyTime, message) => {
+const collectMinPlayers = (channel: TextChannel, game: string, date: string, notifyTime: number, message: Message) => {
   const collector = message.channel.createMessageCollector(
     (m) => !isNaN(m.content) && m.author.id === message.author.id,
     { time: timeout }
   );
-  collector.on("collect", (m) => {
+  collector.on("collect", (m: Message) => {
     collector.stop();
+    if (isNaN(<any> m.content)) {
+      message.author.send(
+        `Minimi pelaajamäärä pitää olla numero. Mikä on minimi pelaajamäärä?`
+      );
+      collectMinPlayers(channel, game, date, notifyTime, message);
+      return;
+    }
+
     message.author.send(
       `${date} ${game} minimissään ${m.content} pelaajalla. Mikä on maksimi pelaajamäärä? Anna 0, jos ei ole maksimia.`
     );
-    collectMaxPlayers(channel, game, date, notifyTime, m.content, message);
+    collectMaxPlayers(channel, game, date, notifyTime, parseInt(m.content), message);
   });
   collectorEnd(collector, message);
 };
 
-const collectNotifyTime = (channel, game, date, message) => {
+const collectNotifyTime = (channel: TextChannel, game: string, date: string, message: Message) => {
   const collector = message.channel.createMessageCollector(
     (m) => !isNaN(m.content) && m.author.id === message.author.id,
     { time: timeout }
   );
-  collector.on("collect", (m) => {
+  collector.on("collect", (m: Message) => {
     collector.stop();
+    if (isNaN(<any> m.content)) {
+      message.author.send(
+        `Tuntimäärä pitää olla numero. Kuinka kauan kerään ääniä?`
+      );
+      collectNotifyTime(channel, game, date, message);
+      return;
+    }
+
     message.author.send(`Kerään ${m.content} tuntia ääniä pelille ${game}! Mikä on minimi pelaajamäärä?`);
-    collectMinPlayers(channel, game, date, m.content, message);
+    collectMinPlayers(channel, game, date, parseInt(m.content), message);
   });
   collectorEnd(collector, message);
 };
 
-const collectDate = (channel, game, message) => {
+const collectDate = (channel: TextChannel, game: string, message: Message) => {
   const collector = message.channel.createMessageCollector(
     (m) => m.content.length >= 2 && m.author.id === message.author.id,
     { time: timeout }
   );
-  collector.on("collect", (m) => {
+  collector.on("collect", (m: Message) => {
     collector.stop();
-    const date = m.content.charAt(0).toUpperCase() + m.content.slice(1);
+    const date: string = m.content.charAt(0).toUpperCase() + m.content.slice(1);
     message.author.send(`${date} on hyvä päivä pelata ${game}! Kuinka monta tuntia kerään ääniä?`);
     collectNotifyTime(channel, game, date, message);
   });
   collectorEnd(collector, message);
 };
 
-const collectGame = (channel, message) => {
+const collectGame = (channel: TextChannel, message: Message) => {
   message.author.send(`OK plänätään. Mitä peliä pelataan?`).then(dm => {
     const collector = dm.channel.createMessageCollector(
       (m) => m.content.length >= 2 && m.author.id === message.author.id,
       { time: timeout }
     );
-    collector.on("collect", (m) => {
+    collector.on("collect", (m: Message) => {
       collector.stop();
       message.author.send(`${m.content} on hyvä peli! Minä päivänä?`);
       collectDate(channel, m.content, m);
@@ -141,14 +168,14 @@ const collectGame = (channel, message) => {
   });
 };
 
-const channelHasPermissions = (channel, message) => {
+const channelHasPermissions = (channel: GuildChannel, message: Message) => {
   return channel.permissionsFor(message.client.user).has(["SEND_MESSAGES", "VIEW_CHANNEL"]) && 
          channel.permissionsFor(message.author).has(["SEND_MESSAGES", "VIEW_CHANNEL"]);
 };
 
-const collectChannel = (guild, message, postedOnChannel = undefined) => {
+const collectChannel = (guild: Guild, message: Message, postedOnChannel: TextChannel = undefined) => {
   if (guild.channels.cache.filter((c) => c.type === "text").size === 1) {
-    const firstTextChannel = guild.channels.cache.filter((c) => c.type === "text").first();
+    const firstTextChannel = <TextChannel> guild.channels.cache.filter((c) => c.type === "text").first();
     if (!channelHasPermissions(firstTextChannel, message)) {
       message.author.send(`Meillä ei valitettavasti ole riittäviä oikeuksia postailla ehdotuksia valitulla palvelimella.`);
       return;
@@ -156,28 +183,28 @@ const collectChannel = (guild, message, postedOnChannel = undefined) => {
     collectGame(firstTextChannel, message);
   } else {
     let i = 1;
-    const textChannels = guild.channels.cache.filter((c) => c.type === "text").map((c) => c);
+    const textChannels = <TextChannel[]> guild.channels.cache.filter((c) => c.type === "text").map((c) => c);
     const allowedChannels = textChannels.filter(c => channelHasPermissions(c, message));
     if (allowedChannels.length === 0) {
       message.author.send(`Meillä ei valitettavasti ole riittäviä oikeuksia postailla ehdotuksia valitulla palvelimella.`);
       return;
     }
     if (postedOnChannel && allowedChannels.some(c => c.id === postedOnChannel.id)) {
-      collectGame(suggestedChannel, message);
+      collectGame(postedOnChannel, message);
       return;
     }
 
     const channelOptions = allowedChannels.map((c) => `${i++}. ${c.name}`);
     message.author.send(`Mille kanavalle laitetaan?\n${channelOptions.join("\n")}`);
     const collector = message.channel.createMessageCollector(
-      (m) =>
-        !isNaN(m.content) &&
+      (m: Message) =>
+        !isNaN(<any> m.content) &&
         parseInt(m.content) >= 1 &&
         parseInt(m.content) <= i - 1 &&
         m.author.id === message.author.id,
       { time: timeout }
     );
-    collector.on("collect", (m) => {
+    collector.on("collect", (m: Message) => {
       collector.stop();
       const channel = allowedChannels[parseInt(m.content) - 1];
       collectGame(channel, message);
@@ -186,14 +213,14 @@ const collectChannel = (guild, message, postedOnChannel = undefined) => {
   }
 };
 
-const collectGuild = (message) => {
+const collectGuild = (message: Message) => {
   if (message.client.guilds.cache.size === 1) {
     const firstGuild = message.client.guilds.cache.first();
     collectChannel(firstGuild, message);
   } else {
     let i = 1;
     const mutualGuilds = message.client.guilds.cache
-      .filter((guild) => guild.members.cache.find((u) => u.id === message.author.id))
+      .filter((guild) => guild.members.cache.some((u) => u.id === message.author.id))
       .map((g) => g);
     const guildOptions = mutualGuilds.map((guild) => `${i++}. ${guild.name}`);
     message.author.send(`Mille palvelimelle laitetaan?\n${guildOptions.join("\n")}`);
@@ -214,7 +241,7 @@ const collectGuild = (message) => {
   }
 };
 
-const planner = {
+const planner: Command = {
   name: "plan",
   description: "Suunnittele pelihetki.",
   cooldown: 5,
@@ -222,41 +249,41 @@ const planner = {
   execute(message, args) {
     const input = args.join(" ");
     const regex = new RegExp('"[^"]+"|[\\S]+', "g");
-    const arguments = [];
+    const parsedArgs: any = [];
     if (input.match(regex)) {
       input.match(regex).forEach((element) => {
         if (!element) return;
-        return arguments.push(element.replace(/"/g, ""));
+        return parsedArgs.push(element.replace(/"/g, ""));
       });
     }
 
     const argCountWithoutTimes = 5;
-    if (arguments.length === 0) {
+    if (parsedArgs.length === 0) {
       if (message.channel.type === "dm") {
         collectGuild(message);
       } else {
-        collectChannel(message.channel.guild, message, message.channel);
+        collectChannel(message.channel.guild, message, <TextChannel> message.channel);
       }
       return;
-    } else if (arguments.length < argCountWithoutTimes + 1) {
+    } else if (parsedArgs.length < argCountWithoutTimes + 1) {
       message.channel.send(`Liian vähän argumentteja. Anna nämä tiedot: ${planner.usage}.`);
       return;
-    } else if (arguments.length > reactOptions.length + argCountWithoutTimes) {
+    } else if (parsedArgs.length > reactOptions.length + argCountWithoutTimes) {
       message.channel.send(`Liian monta aikavaihtoehtoa. ${reactOptions.length} on maksimi.`);
       return;
-    } else if (isNaN(arguments[2]) || isNaN(arguments[3]) || isNaN(arguments[4])) {
+    } else if (isNaN(parsedArgs[2]) || isNaN(parsedArgs[3]) || isNaN(parsedArgs[4])) {
       message.channel.send(`Minimi- ja maksimipelaajamäärä pitää olla numeroita.`);
       return;
     }
 
     publishPlan(
       message.channel,
-      arguments[0],
-      arguments[1],
-      parseInt(arguments[2]),
-      parseInt(arguments[3]),
-      parseInt(arguments[4]),
-      arguments.slice(5)
+      parsedArgs[0],
+      parsedArgs[1],
+      parseInt(parsedArgs[2]),
+      parseInt(parsedArgs[3]),
+      parseInt(parsedArgs[4]),
+      parsedArgs.slice(5)
     );
   },
 };
