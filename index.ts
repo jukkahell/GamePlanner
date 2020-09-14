@@ -8,7 +8,7 @@ import config = require("./config.json");
 const client: DiscordClient = new Discord.Client();
 client.commands = new Discord.Collection<string, Command>();
 const cooldowns = new Discord.Collection<string, Discord.Collection<string, number>>();
-const commandFiles = fs.readdirSync("./commands").filter((file) => file.endsWith(".js"));
+const commandFiles = fs.readdirSync("./commands").filter((file: string) => file.endsWith(".js"));
 
 for (const file of commandFiles) {
   const command = require(`./commands/${file}`);
