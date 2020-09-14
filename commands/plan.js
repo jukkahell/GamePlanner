@@ -167,7 +167,7 @@ const collectChannel = (guild, message) => {
     );
     collector.on("collect", (m) => {
       collector.stop();
-      const channel = textChannels[parseInt(m.content) - 1];
+      const channel = allowedChannels[parseInt(m.content) - 1];
       collectGame(channel, message);
     });
     collectorEnd(collector, message);
