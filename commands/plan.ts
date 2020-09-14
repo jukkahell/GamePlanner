@@ -188,6 +188,9 @@ const collectChannel = (guild: Guild, message: Message, postedOnChannel: TextCha
     if (allowedChannels.length === 0) {
       message.author.send(`Meillä ei valitettavasti ole riittäviä oikeuksia postailla ehdotuksia valitulla palvelimella.`);
       return;
+    } else if (allowedChannels.length === 1) {
+      collectGame(allowedChannels[0], message);
+      return;
     }
     if (postedOnChannel && allowedChannels.some(c => c.id === postedOnChannel.id)) {
       collectGame(postedOnChannel, message);
