@@ -8,5 +8,5 @@ export interface Command {
   cooldown?: number,
   guildOnly?: boolean,
   args?: boolean,
-  execute: (message: Message, args?: string[]) => Promise<Message> | void;
+  execute: (message: Message, args?: string[]) => Promise<Message> | Promise<void> | void;
 }

@@ -1,7 +1,8 @@
 import { Command } from "./command.interface";
-import { Message, Guild, TextChannel, GuildChannel, DMChannel, NewsChannel, MessageCollector, CollectorFilter } from "discord.js";
+import { Message, Guild, TextChannel, GuildChannel, DMChannel, NewsChannel, MessageCollector, CollectorFilter, Role } from "discord.js";
+import { MAX_REACT_OPTIONS, reactOptions } from "../utils/reactoptions";
 
-const reactOptions = ["🇦", "🇧", "🇨", "🇩", "🇪", "🇫", "🇬", "🇭"];
+const ROLE_COLOR = 16762624;
 const timeout = 60000;
 
 const collectorEnd = (collector: MessageCollector, message: Message) => {
@@ -12,17 +13,17 @@ const collectorEnd = (collector: MessageCollector, message: Message) => {
   });
 };
 
-const publishPlan = (channel: TextChannel | DMChannel | NewsChannel, game: string, date: string, notifyTime: number, minPlayers: number, maxPlayers: number, options: string[]) => {
+const publishPlan = (channel: TextChannel | DMChannel | NewsChannel, game: string, gamerole: Role, date: string, notifyTime: number, minPlayers: number, maxPlayers: number, options: string[]) => {
   let optionsText = "";
   for (let i = 0; i < options.length; i++) {
     optionsText += `${reactOptions[i]} ${options[i]}\n`;
   }
   const playerCountText = maxPlayers === 0 ? `minimissään ${minPlayers}` : `${minPlayers}-${maxPlayers}`;
-
+  const gameName = gamerole ? `<@&${gamerole.id}>` : game;
   channel
     .send(
       `
-Kuka haluaa pelata **${date.toLowerCase()}** peliä **${game}**?!
+Kuka haluaa pelata **${date.toLowerCase()}** peliä **${gameName}**?!
 Pelaajamäärä ${playerCountText}
 ${optionsText}
 `
@@ -56,22 +57,22 @@ ${optionsText}
     });
 };
 
-const collectTimes = (channel: TextChannel, game: string, date: string, notifyTime: number, minPlayers: number, maxPlayers: number, message: Message) => {
+const collectTimes = (channel: TextChannel, game: string, gamerole: Role, date: string, notifyTime: number, minPlayers: number, maxPlayers: number, message: Message) => {
   const collector = message.channel.createMessageCollector(
-    (m) => m.content.length >= 5 && m.author.id === message.author.id,
+    (m) => m.content.length >= 2 && m.author.id === message.author.id,
     { time: timeout }
   );
   collector.on("collect", (m) => {
     collector.stop();
     message.author.send(
-      `Jatkossa voit halutessasi postata plänin suoraan kanavalle näin:\n!plan "${game}" ${date} ${notifyTime} ${minPlayers} ${maxPlayers} ${m.content}`
+      `Jatkossa voit halutessasi postata plänin suoraan kanavalle näin:\n!plan "@${game}" ${date} ${notifyTime} ${minPlayers} ${maxPlayers} ${m.content}`
     );
-    publishPlan(channel, game, date, notifyTime, minPlayers, maxPlayers, m.content.split(" "));
+    publishPlan(channel, game, gamerole, date, notifyTime, minPlayers, maxPlayers, m.content.split(" "));
   });
   collectorEnd(collector, message);
 };
 
-const collectMaxPlayers = (channel: TextChannel, game: string, date: string, notifyTime: number, minPlayers: number, message: Message) => {
+const collectMaxPlayers = (channel: TextChannel, game: string, gamerole: Role, date: string, notifyTime: number, minPlayers: number, message: Message) => {
   const collector = message.channel.createMessageCollector(
     (m: Message) => !isNaN(<any> m.content) && m.author.id === message.author.id,
     { time: timeout }
@@ -82,12 +83,12 @@ const collectMaxPlayers = (channel: TextChannel, game: string, date: string, not
     message.author.send(
       `${date} ${game}, ${playerCountText}. Mitä annetaan vaihtoehdoiksi? Voit antaa useamman ajankohdan välilyönnillä eroteltuna.`
     );
-    collectTimes(channel, game, date, notifyTime, minPlayers, parseInt(m.content), message);
+    collectTimes(channel, game, gamerole, date, notifyTime, minPlayers, parseInt(m.content), message);
   });
   collectorEnd(collector, message);
 };
 
-const collectMinPlayers = (channel: TextChannel, game: string, date: string, notifyTime: number, message: Message) => {
+const collectMinPlayers = (channel: TextChannel, game: string, gamerole: Role, date: string, notifyTime: number, message: Message) => {
   const collector = message.channel.createMessageCollector(
     (m) => !isNaN(m.content) && m.author.id === message.author.id,
     { time: timeout }
@@ -97,12 +98,12 @@ const collectMinPlayers = (channel: TextChannel, game: string, date: string, not
     message.author.send(
       `${date} ${game} minimissään ${m.content} pelaajalla. Mikä on maksimi pelaajamäärä? Anna 0, jos ei ole maksimia.`
     );
-    collectMaxPlayers(channel, game, date, notifyTime, parseInt(m.content), message);
+    collectMaxPlayers(channel, game, gamerole, date, notifyTime, parseInt(m.content), message);
   });
   collectorEnd(collector, message);
 };
 
-const collectNotifyTime = (channel: TextChannel, game: string, date: string, message: Message) => {
+const collectNotifyTime = (channel: TextChannel, game: string, gamerole: Role, date: string, message: Message) => {
   const collector = message.channel.createMessageCollector(
     (m) => !isNaN(m.content) && m.author.id === message.author.id,
     { time: timeout }
@@ -110,12 +111,12 @@ const collectNotifyTime = (channel: TextChannel, game: string, date: string, mes
   collector.on("collect", (m: Message) => {
     collector.stop();
     message.author.send(`Kerään ${m.content} tuntia ääniä pelille ${game}! Mikä on minimi pelaajamäärä?`);
-    collectMinPlayers(channel, game, date, parseInt(m.content), message);
+    collectMinPlayers(channel, game, gamerole, date, parseInt(m.content), message);
   });
   collectorEnd(collector, message);
 };
 
-const collectDate = (channel: TextChannel, game: string, message: Message) => {
+const collectDate = (channel: TextChannel, game: string, gamerole: Role, message: Message) => {
   const collector = message.channel.createMessageCollector(
     (m) => m.content.length >= 2 && m.author.id === message.author.id,
     { time: timeout }
@@ -124,13 +125,13 @@ const collectDate = (channel: TextChannel, game: string, message: Message) => {
     collector.stop();
     const date: string = m.content.charAt(0).toUpperCase() + m.content.slice(1);
     message.author.send(`${date} on hyvä päivä pelata ${game}! Kuinka monta tuntia kerään ääniä?`);
-    collectNotifyTime(channel, game, date, message);
+    collectNotifyTime(channel, game, gamerole, date, message);
   });
   collectorEnd(collector, message);
 };
 
-const collectGame = (channel: TextChannel, message: Message) => {
-  message.author.send(`OK plänätään. Mitä peliä pelataan?`).then(dm => {
+const collectGameManually = (channel: TextChannel, message: Message) => {
+  message.author.send(`Mitä peliä pelataan?`).then(dm => {
     const collector = dm.channel.createMessageCollector(
       (m) => m.content.length >= 2 && m.author.id === message.author.id,
       { time: timeout }
@@ -138,7 +139,39 @@ const collectGame = (channel: TextChannel, message: Message) => {
     collector.on("collect", (m: Message) => {
       collector.stop();
       message.author.send(`${m.content} on hyvä peli! Minä päivänä?`);
-      collectDate(channel, m.content, m);
+      collectDate(channel, m.content, null, m);
+    });
+    collectorEnd(collector, message);
+  });
+};
+
+const collectGame = (channel: TextChannel, message: Message) => {
+  const gameroles = channel.guild.roles.cache.filter(role => role.color === ROLE_COLOR).map(r => r);
+
+  let gameOptions = "";
+  for (let i = 0; i < gameroles.length; i++) {
+    gameOptions += `${i+1}. ${gameroles[i].name}\n`;
+  }
+  gameOptions += `${gameroles.length+1}. Kirjoita käsin ilman notskuja`;
+  message.author.send(`OK plänätään. Valitse peli:\n${gameOptions}`).then(dm => {
+    const collector = dm.channel.createMessageCollector(
+      (m) => 
+        !isNaN(<any> m.content) &&
+        parseInt(m.content) >= 1 &&
+        parseInt(m.content) <= gameroles.length + 1 &&
+        m.author.id === message.author.id,
+      { time: timeout }
+    );
+    collector.on("collect", (m: Message) => {
+      collector.stop();
+      const selection = parseInt(m.content) - 1;
+      if (selection === gameroles.length) {
+        collectGameManually(channel, message);
+      } else {
+        const gamerole = gameroles[selection];
+        message.author.send(`${gamerole.name} on hyvä peli! Minä päivänä?`);
+        collectDate(channel, gamerole.name, gamerole, m);
+      }
     });
     collectorEnd(collector, message);
   });
@@ -247,8 +280,8 @@ const planner: Command = {
     } else if (parsedArgs.length < argCountWithoutTimes + 1) {
       message.channel.send(`Liian vähän argumentteja. Anna nämä tiedot: ${planner.usage}.`);
       return;
-    } else if (parsedArgs.length > reactOptions.length + argCountWithoutTimes) {
-      message.channel.send(`Liian monta aikavaihtoehtoa. ${reactOptions.length} on maksimi.`);
+    } else if (parsedArgs.length > MAX_REACT_OPTIONS + argCountWithoutTimes) {
+      message.channel.send(`Liian monta vaihtoehtoa. ${MAX_REACT_OPTIONS} on maksimi.`);
       return;
     } else if (isNaN(parsedArgs[2]) || isNaN(parsedArgs[3]) || isNaN(parsedArgs[4])) {
       message.channel.send(`Minimi- ja maksimipelaajamäärä pitää olla numeroita.`);
@@ -258,6 +291,7 @@ const planner: Command = {
     publishPlan(
       message.channel,
       parsedArgs[0],
+      null,
       parsedArgs[1],
       parseInt(parsedArgs[2]),
       parseInt(parsedArgs[3]),
