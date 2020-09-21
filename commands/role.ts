@@ -28,7 +28,7 @@ const addNewGame = async (message: Message, guild: Guild, name: string) => {
         name,
         color: ROLE_COLOR,
         mentionable: true,
-        permissions: null,
+        permissions: 0,
       },
       reason: `Added by GamePlanner for ${message.author.tag}`,
     });
