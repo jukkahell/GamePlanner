@@ -13,13 +13,21 @@ const collectorEnd = (collector: MessageCollector, message: Message) => {
   });
 };
 
-const publishPlan = (channel: TextChannel | DMChannel | NewsChannel, game: string, gamerole: Role, date: string, notifyTime: number, minPlayers: number, maxPlayers: number, options: string[]) => {
+const publishPlan = (channel: TextChannel, game: string, gamerole: Role, date: string, notifyTime: number, minPlayers: number, maxPlayers: number, options: string[], postedOnChannel: boolean = false) => {
   let optionsText = "";
   for (let i = 0; i < options.length; i++) {
     optionsText += `${reactOptions[i]} ${options[i]}\n`;
   }
   const playerCountText = maxPlayers === 0 ? `minimissään ${minPlayers}` : `${minPlayers}-${maxPlayers}`;
-  const gameName = gamerole ? `<@&${gamerole.id}>` : game;
+  let gameName = gamerole ? `<@&${gamerole.id}>` : game;
+  if (postedOnChannel && gameName.indexOf('<@&') >= 0) {
+    console.log(gameName);
+    let gameRoleId = game.replace('<@&', '');
+    gameRoleId = gameRoleId.replace('>', '');
+    const gameRole = channel.guild.roles.cache.find(r => r.id === gameRoleId);
+    gameName = gameRole.name;
+  }
+
   channel
     .send(
       `
@@ -37,16 +45,22 @@ ${optionsText}
           return reactOptions.indexOf(reaction.emoji.name) >= 0;
         };
         const collector = message.createReactionCollector(filter, { dispose: true, time: notifyTime * 60 * 60 * 1000 });
-        collector.on("end", (collected) => {
+        collector.on("collect", (reaction) => {
+          if (reaction.count === maxPlayers) {
+            collector.stop();
+          }
+        });
+        collector.on("end", (reactions) => {
           const maxCount = Math.max.apply(
             Math,
-            collected.map((o) => o.count)
+            reactions.map((r) => r.count && reactOptions.includes(r.emoji.name))
           );
           if (maxCount - 1 < minPlayers) {
+            game = (game.indexOf('@') >= 0) ? game.replace('@', '') : game;
             channel.send(`Ei saatu tarpeeksi pelaajia (${minPlayers}) ${date} pelille ${game}.`);
             return;
           }
-          const maxReaction = collected.find((o) => o.count == maxCount);
+          const maxReaction = reactions.find((o) => o.count == maxCount);
           const users = maxReaction.users.cache.filter((u) => !u.bot).map((u) => `<@${u.id}>`);
           const time = options[reactOptions.indexOf(maxReaction.emoji.name)];
           channel.send(`${users.join(" ")} ${game} pelit alkaa ${time}.`);
@@ -289,14 +303,15 @@ const planner: Command = {
     }
 
     publishPlan(
-      message.channel,
+      <TextChannel> message.channel,
       parsedArgs[0],
       null,
       parsedArgs[1],
       parseInt(parsedArgs[2]),
       parseInt(parsedArgs[3]),
       parseInt(parsedArgs[4]),
-      parsedArgs.slice(5)
+      parsedArgs.slice(5),
+      true
     );
   },
 };
