@@ -1,6 +1,7 @@
 import { Command } from "./command.interface";
-import { Message, Guild, TextChannel, GuildChannel, DMChannel, NewsChannel, MessageCollector, CollectorFilter, Role } from "discord.js";
+import { Message, Guild, TextChannel, GuildChannel, MessageCollector, CollectorFilter, Role } from "discord.js";
 import { MAX_REACT_OPTIONS, reactOptions } from "../utils/reactoptions";
+import { parseStringArgs } from "../utils/string-utils";
 
 const ROLE_COLOR = 16762624;
 const timeout = 60000;
@@ -20,12 +21,15 @@ const publishPlan = (channel: TextChannel, game: string, gamerole: Role, date: s
   }
   const playerCountText = maxPlayers === 0 ? `minimissään ${minPlayers}` : `${minPlayers}-${maxPlayers}`;
   let gameName = gamerole ? `<@&${gamerole.id}>` : game;
-  if (postedOnChannel && gameName.indexOf('<@&') >= 0) {
-    console.log(gameName);
-    let gameRoleId = game.replace('<@&', '');
-    gameRoleId = gameRoleId.replace('>', '');
+  let untaggedGameName = game;
+  if (gameName.indexOf('<@&') >= 0) {
+    let gameRoleId = game.replace('<@&', '').replace('>', '');
     const gameRole = channel.guild.roles.cache.find(r => r.id === gameRoleId);
-    gameName = gameRole.name;
+    untaggedGameName = gameRole.name;
+  }
+
+  if (postedOnChannel) {
+    gameName = untaggedGameName;
   }
 
   channel
@@ -56,8 +60,7 @@ ${optionsText}
             reactions.map((r) => r.count && reactOptions.includes(r.emoji.name))
           );
           if (maxCount - 1 < minPlayers) {
-            game = (game.indexOf('@') >= 0) ? game.replace('@', '') : game;
-            channel.send(`Ei saatu tarpeeksi pelaajia (${minPlayers}) ${date} pelille ${game}.`);
+            channel.send(`Ei saatu tarpeeksi pelaajia (${minPlayers}) ${date} pelille ${untaggedGameName}.`);
             return;
           }
           const maxReaction = reactions.find((o) => o.count == maxCount);
@@ -71,7 +74,7 @@ ${optionsText}
     });
 };
 
-const collectTimes = (channel: TextChannel, game: string, gamerole: Role, date: string, notifyTime: number, minPlayers: number, maxPlayers: number, message: Message) => {
+const collectVoteOptions = (channel: TextChannel, game: string, gamerole: Role, date: string, notifyTime: number, minPlayers: number, maxPlayers: number, message: Message) => {
   const collector = message.channel.createMessageCollector(
     (m) => m.content.length >= 2 && m.author.id === message.author.id,
     { time: timeout }
@@ -81,7 +84,8 @@ const collectTimes = (channel: TextChannel, game: string, gamerole: Role, date: 
     message.author.send(
       `Jatkossa voit halutessasi postata plänin suoraan kanavalle näin:\n!plan "@${game}" ${date} ${notifyTime} ${minPlayers} ${maxPlayers} ${m.content}`
     );
-    publishPlan(channel, game, gamerole, date, notifyTime, minPlayers, maxPlayers, m.content.split(" "));
+    const options = <string[]> parseStringArgs(m.content);
+    publishPlan(channel, game, gamerole, date, notifyTime, minPlayers, maxPlayers, options);
   });
   collectorEnd(collector, message);
 };
@@ -95,9 +99,9 @@ const collectMaxPlayers = (channel: TextChannel, game: string, gamerole: Role, d
     collector.stop();
     const playerCountText = m.content === '0' ? `minimissään ${minPlayers} pelaajaa` : `${minPlayers}-${m.content} pelaajaa`;
     message.author.send(
-      `${date} ${game}, ${playerCountText}. Mitä annetaan vaihtoehdoiksi? Voit antaa useamman ajankohdan välilyönnillä eroteltuna.`
+      `${date} ${game}, ${playerCountText}. Mitä annetaan vaihtoehdoiksi? Voit antaa useamman vaihtoehdon välilyönnillä eroteltuna. Käytä lainausmerkkejä jos vaihtoehdossa on välilyönti.`
     );
-    collectTimes(channel, game, gamerole, date, notifyTime, minPlayers, parseInt(m.content), message);
+    collectVoteOptions(channel, game, gamerole, date, notifyTime, minPlayers, parseInt(m.content), message);
   });
   collectorEnd(collector, message);
 };
@@ -274,14 +278,7 @@ const planner: Command = {
   usage: `[pelin nimi] [ajankohta] [keräysaika tunteina] [min pelaajaa] [max pelaajaa] [...vaihtoehdot (max ${reactOptions.length})]`,
   execute(message, args) {
     const input = args.join(" ");
-    const regex = new RegExp('"[^"]+"|[\\S]+', "g");
-    const parsedArgs: any = [];
-    if (input.match(regex)) {
-      input.match(regex).forEach((element) => {
-        if (!element) return;
-        return parsedArgs.push(element.replace(/"/g, ""));
-      });
-    }
+    const parsedArgs = parseStringArgs(input);
 
     const argCountWithoutTimes = 5;
     if (parsedArgs.length === 0) {
