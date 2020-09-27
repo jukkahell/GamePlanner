@@ -166,6 +166,11 @@ const collectGameManually = (channel: TextChannel, message: Message) => {
 const collectGame = (channel: TextChannel, message: Message) => {
   const gameroles = channel.guild.roles.cache.filter(role => role.color === ROLE_COLOR).map(r => r);
 
+  if (gameroles.length === 0) {
+    collectGameManually(channel, message);
+    return;
+  }
+
   let gameOptions = "";
   for (let i = 0; i < gameroles.length; i++) {
     gameOptions += `${i+1}. ${gameroles[i].name}\n`;
