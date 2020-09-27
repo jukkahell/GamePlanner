@@ -25,11 +25,13 @@ const publishPlan = (channel: TextChannel, game: string, gamerole: Role, date: s
       ? `${minPlayers}-${maxPlayers}`
       : `tasan ${minPlayers}`;
   let gameName = gamerole ? `<@&${gamerole.id}>` : game;
-  let untaggedGameName = game;
-  if (gameName.indexOf('<@&') >= 0) {
+  let untaggedGameName = gamerole ? gamerole.name : game;
+  if (!gamerole && gameName.indexOf('<@&') >= 0) {
     let gameRoleId = game.replace('<@&', '').replace('>', '');
-    const gameRole = channel.guild.roles.cache.find(r => r.id === gameRoleId);
-    untaggedGameName = gameRole.name;
+    const role = channel.guild.roles.cache.find(r => r.id === gameRoleId);
+    if (role) {
+      untaggedGameName = role.name;
+    }
   }
 
   if (postedOnChannel) {
