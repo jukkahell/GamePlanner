@@ -19,7 +19,11 @@ const publishPlan = (channel: TextChannel, game: string, gamerole: Role, date: s
   for (let i = 0; i < options.length; i++) {
     optionsText += `${reactOptions[i]} ${options[i]}\n`;
   }
-  const playerCountText = maxPlayers === 0 ? `minimissään ${minPlayers}` : `${minPlayers}-${maxPlayers}`;
+  const playerCountText = maxPlayers === 0 
+    ? `minimissään ${minPlayers}` 
+    : (minPlayers !== maxPlayers)
+      ? `${minPlayers}-${maxPlayers}`
+      : `tasan ${minPlayers}`;
   let gameName = gamerole ? `<@&${gamerole.id}>` : game;
   let untaggedGameName = game;
   if (gameName.indexOf('<@&') >= 0) {
@@ -95,13 +99,25 @@ const collectMaxPlayers = (channel: TextChannel, game: string, gamerole: Role, d
     (m: Message) => !isNaN(<any> m.content) && m.author.id === message.author.id,
     { time: timeout }
   );
+
   collector.on("collect", (m: Message) => {
     collector.stop();
-    const playerCountText = m.content === '0' ? `minimissään ${minPlayers} pelaajaa` : `${minPlayers}-${m.content} pelaajaa`;
+    const maxPlayers = parseInt(m.content);
+    if (maxPlayers !== 0 && maxPlayers < minPlayers) {
+      message.author.send(`Enimmäismäärä pitää olla suurempi tai yhtäsuuri kuin vähimmäismäärä (>= ${minPlayers}). Mikä on enimmäismäärä?`);
+      collectMaxPlayers(channel, game, gamerole, date, notifyTime, minPlayers, message);
+      return;
+    }
+
+    const playerCountText = maxPlayers === 0 
+      ? `vähintään ${minPlayers} pelaajaa` 
+      : (minPlayers === maxPlayers)
+        ? `tasan ${minPlayers} pelaajaa`
+        : `${minPlayers}-${maxPlayers} pelaajaa`;
     message.author.send(
       `${date} ${game}, ${playerCountText}. Mitä annetaan vaihtoehdoiksi? Voit antaa useamman vaihtoehdon välilyönnillä eroteltuna. Käytä lainausmerkkejä jos vaihtoehdossa on välilyönti.`
     );
-    collectVoteOptions(channel, game, gamerole, date, notifyTime, minPlayers, parseInt(m.content), message);
+    collectVoteOptions(channel, game, gamerole, date, notifyTime, minPlayers, maxPlayers, message);
   });
   collectorEnd(collector, message);
 };
@@ -114,7 +130,7 @@ const collectMinPlayers = (channel: TextChannel, game: string, gamerole: Role, d
   collector.on("collect", (m: Message) => {
     collector.stop();
     message.author.send(
-      `${date} ${game} minimissään ${m.content} pelaajalla. Mikä on maksimi pelaajamäärä? Anna 0, jos ei ole maksimia.`
+      `${date} ${game} vähintään ${m.content} pelaajaa. Mikä on enimmäispelaajamäärä? Anna 0, jos ei ole ylärajaa.`
     );
     collectMaxPlayers(channel, game, gamerole, date, notifyTime, parseInt(m.content), message);
   });
@@ -128,7 +144,7 @@ const collectNotifyTime = (channel: TextChannel, game: string, gamerole: Role, d
   );
   collector.on("collect", (m: Message) => {
     collector.stop();
-    message.author.send(`Kerään ${m.content} tuntia ääniä pelille ${game}! Mikä on minimi pelaajamäärä?`);
+    message.author.send(`Kerään ${m.content} tuntia ääniä pelille ${game}! Kuinka monta pelaajaa pitää vähintään olla?`);
     collectMinPlayers(channel, game, gamerole, date, parseInt(m.content), message);
   });
   collectorEnd(collector, message);
